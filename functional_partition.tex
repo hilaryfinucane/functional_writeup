@@ -1,0 +1,1029 @@
+%\pdfoutput 1 %pdf
+
+\documentclass[11pt]{article}
+
+\usepackage{amssymb,amsmath,amsthm}
+\usepackage{verbatim}
+\usepackage{fullpage}
+
+\newtheorem{thm}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{prop}{Proposition}
+\newtheorem{cor}{Corollary}
+\newtheorem*{hyp}{Hypothesis}
+
+%\addtolength{\oddsidemargin}{-.5in}
+%\addtolength{\evensidemargin}{-.5in}
+%\addtolength{\textwidth}{1in}
+%\addtolength{\topmargin}{-.5in}
+%\addtolength{\textheight}{1in}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\T}{\mathcal{T}}
+\newcommand{\U}{\mathcal{U}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\B}{\mathcal{B}}
+ \mathchardef\myhyphen="2D
+
+\def\diam{\mathop{\mathrm{diam}}}
+
+%\setlength\parindent{0pt}
+
+\title{Partitioning heritability by functional annotation using summary statistics}
+\author{ [Hilary Finucane,  Brendan Bulik-Sullivan],  Sasha Gusev,  Gosia Trynka,\\  
+Po-Ru Loh,  Han Xu,  Chongzhi Zang,  Soumya Raychaudhuri,  Sara Lindstrom,\\
+Stephan Ripke,  Schizophrenia Working Group of the Psychiatric Genomics\\
+Consortium, Shaun Purcell,  Mark Daly,  Eli Stahl,  Naomi Wray,  Nick Patterson,\\
+Ben Neale, Alkes Price}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Methods}
+\subsection{Multivariate LD Score Regression}
+Let $X$ be a genotype matrix with columns normalized to mean zero and variance one. Let $\beta$ be a vector of SNP effects, and let $\epsilon$ be a random vector reflecting noise and environmental effects with $\epsilon_i \sim N(0,\sigma^2_e)$. We will model a quantitative phenotype $y$ as 
+$$y = X\beta + \epsilon.$$
+Let $\hat{\beta}$ be the estimate of the marginal effect of $\beta$, given by
+$$\hat{\beta} := \frac{1}{N} X^T y.$$
+Substituting $y = X\beta+\epsilon$ to the above equation, we get
+$$\hat{\beta} = \frac{1}{N} X^T X \beta + \frac{1}{N} X^T \epsilon = \hat{D}\beta + \epsilon',$$
+where $\hat{D}$ is the in-sample LD matrix $X^TX/N$ and $\epsilon' = X^T\epsilon/N$.
+For a single entry $\beta_j$, this means that
+$$\hat{\beta_j} = \sum_k \hat{r}_{jk} \beta_k + \epsilon'_j,$$
+where $\hat{r}_{jk} = \hat{D}(j,k)$ and $\epsilon'_j$ has mean 0 and variance $ \frac{1}{N}\sigma^2_e$.
+
+We will model $\beta$ as a mean-0 random vector with independent entries. We will allow the variance of $\beta_j$ to depend on certain functional properties of SNP $j$; for example, we will allow coding and non-coding SNPs to have different variances. More precisely, we will assume we have $C$ functions $x_1, \ldots , x_C: [M] \rightarrow \mathbb{R}$, each of which encodes some functional information about each SNP. For example, $x_c$ could be the indicator function for the event that a SNP falls into a certain functional category. Alternatively, $x_c$ could be a continuous function like McVicker's B statistic. One of the functions must always be the constant function $x_c(j) = 1$ to allow for baseline heritability. We will model the variance of $\beta_j$ as
+\begin{equation}
+\label{varbeta}
+var(\beta_j) = \sum_{c=1}^C a_c x_c(j).
+\end{equation}
+In the case that all of the $x_c$ are indicator functions, this means that each category has an associated coefficient $a_c$, and the variance of $\beta_j$ is the sum of these coefficients across all the categories to which it belongs. In the case that $x_c$ are indicator functions for disjoint categories, we will have $a_c = h^2(c)/M(c)$.
+
+We could fit this model by making some distributional assumptions on $\beta$ that allow us to assume that $\hat{\beta}$ is normally or approximately normally distributed, and maximizing the corresponding likelihood. However, the likelihood depends on $\hat{D}$. Using the true $\hat{D}$ is computationally intractable, whereas both computational and numerical issues arise with approximate $\hat{D}$, especially for multiple categories. So we will instead use a heuristic fitting procedure based on LD Score Regression \cite{} that is both computationally straight-forward and robust to noise in $\hat{D}$.
+
+To describe this method, we will consider the expectation of the chi-square statistic $\chi^2_j = N \hat{\beta_j}^2$. 
+
+\begin{align*}
+E[\chi^2_j] &= N E\left(\sum_k \hat{r}_{jk} \beta_k + \epsilon'_j\right)^2\\
+&= N\sum_k \hat{r}_{jk}^2 E[\beta_k ^2] + NE[{\epsilon'}_j^2]\\
+&= N\sum_k \hat{r}_{jk}^2 \left(\sum_c a_c x_c(k)\right) + N \sigma^2_e\\
+&= N \sum_c a_c \sum_k \hat{r}_{jk}^2 x_c(k) + N \sigma^2_e
+\end{align*}
+where the first equality follows because the random variables are all independent with mean 0.
+
+Let $r_{jk}$ denote the true correlation between SNPs $j$ and $k$ in the underlying population. In a population with no sample structure, $E[\hat{r}_{jk}^2] \approx r_{jk}^2 + 1/N$. Another useful fact is that the variance of $y_j$ is $\sum_j var(\beta_j) + \sigma^2_e$. So assuming that we have normalized our phenotype to variance one, we can assume that that $\sum_j var(\beta_j) + \sigma^2_e = 1$.
+
+Now we can write
+\begin{align*}
+E[\chi^2_j] &= N \sum_c a_c \sum_k \hat{r}_{jk}^2 x_c(k) + N \sigma^2_e\\
+&= N \sum_c a_c \sum_k (\hat{r}_{jk}^2 - 1/N) x_c(k) + N \sum_c a_c \sum_k (1/N) x_c(j) + N \sigma^2_e\\
+&\approx N \sum_c a_c \sum_k r_{jk}^2 x_c(k) + \sum_k var(\beta_k) + N \sigma^2_e\\
+&= N \sum_c a_c \ell(j,c) + 1,
+\end{align*}
+where $\ell(j,c) := \sum_k r_{jk}^2 x_c(k)$.
+
+Our goal is to estimate the heritability of a certain category of SNPs, say $A$, given a vector of $\chi^2$ statistics and LD information either from the sample or from a reference panel. For our purposes, we define the heritability of a category $A$ to be $\sum_{j \in A} \beta_j^2 \approx \sum_{j \in A} Var(\beta_j).$ To estimate $Var(\beta_j)$, we need to estimate each of the coefficients $a_c$, and then we can use Equation~\eqref{varbeta}. To estimate $a_c$, we first compute $\ell(j,c)$, then we regress $\chi^2_j$ on $\ell(j,c)$. This is called multivariate LD Score regression.
+
+Multivariate LD Score Regression has several advantages: it only requires summary statistics, and it is computationally straightforward, numerically stable, and robust to noise in $\ell(j,c)$. This allows us to use a large number of annotations in our model. It is also easily extended, for example, to assume that effect sizes are i.i.d.\ per allele instead of per genotype by adding a multiplicative term to Equation~\eqref{varbeta}. 
+
+The main disadvantage of LD Score Regression is that it is sensitive to model misspecification, and in particular assumes that there is no relationship between LD Score and causal effect size. In the one-category case, this means that if high-LD SNPs have higher per-SNP heritability than low-LD SNPs, heritability will be overestimated, and vice-versa. The two-category case is more involved. Suppose our goal is to estimate the heritability of DHS regions, but all of the causal signal is in some annotation that does not overlap with DHS but whose regions lie systematically close to DHS regions. This induces a relationship between $\ell(j,DHS)$ and causal effect size; if a non-DHS SNP has high $\ell(j,DHS)$ then it is more likely to be close to DHS and thus causal than if a non-DHS SNP has very low $\ell(j,DHS)$. This violates our model assumptions, and so if we simply do a two-category analysis with one category for DHS and one category for non-DHS, then we will see inflated estimates of DHS heritability.
+
+In order to deal with model misspecification, we want to include as many functional categories in our model as possible. When we do this, no functional annotation we know about can cause model misspecification bias, and unknown functional annotations that are correlated with known functional annotations cannot have as large an effect. The trade-off is an increase in standard error. We have found, though, that estimates of the heritability of a category tend to have a small standard error even when many functional categories are included, though estimates of the particular coefficients $a_c$ might be more sensitive. A bigger problem is that there might be other functional enrichments that we are not modeling, and that model misspecification could cause problems. 
+
+%Assume for now no population structure or cryptic relatedness, and let $X$ be a genotype matrix with columns normalized to mean zero and variance one. For a quantitative phenotype $y$, we write
+%$$y = X\beta + \epsilon,$$
+%$$\hat{\beta} := \frac{1}{N} X^T y = \hat{D}\beta + \epsilon',$$
+%where $\hat{D}$ is the in-sample LD matrix $X^TX/N$, and $\epsilon' = X^T\epsilon/N$. Suppose that $\epsilon_i$ are i.i.d.\ normal random variables with mean 0 and variance $\sigma^2_e$. Then $\epsilon' \sim N(0, \sigma^2_e \hat{D}/N)$ and so
+%$$\hat{\beta} | \beta \sim N(\hat{D}\beta, \sigma^2_e \hat{D}/N).$$
+%
+%Suppose now that we want to model $\beta$ as a random vector. We will assign each snp $j$ to a category $c(j)$. Then each $\beta_j$ will be drawn independently with mean zero and variance $v(c(j))$. We will not assume a particular distribution for $\beta$. Marginalizing out $\beta$, we see that $\hat{\beta}$ has mean 0 and variance
+%$$Var(\hat{\beta}) = \sigma^2_e \hat{D}/N + \hat{D} Var(\beta) \hat{D}^T.$$
+%Let $A_c$ denote the diagonal matrix with ones in the diagonal elements corresponding to SNPs in $c$ and 0's elsewhere. Let $v(c)$ denote the variance of SNP effects in category $c$. Then $Var(\beta) = \sum_c v(c) A_c$. Moreover, $\hat{\beta}$ is approximately normally distributed by the CLT, and so we can write:
+%$$\hat{\beta} \sim N\left(0, \sigma^2_e \hat{D}/N + \sum_c v(c) \hat{D} A_c \hat{D}^T\right).$$
+%It will sometimes be useful to talk instead about a vector of z-scores. Let $z = \sqrt{N} \hat{\beta}$. Then
+%$$z \sim N\left( 0, \sigma^2_e \hat{D} + N \sum_c v(c) \hat{D}A_c \hat{D}^T\right).$$
+%
+%We would like to estimate the category-specific variances $v(c)$. In theory, this could be done using maximum likelihood. However, this is computationally intractable using the true $\hat{D}$, whereas both computational and numerical issues arise with approximate $\hat{D}$, especially for multiple categories. So we will instead use a heuristic fitting procedure based on LD Score Regression \cite{} that is both computationally straight-forward and robust to noise in $\hat{D}$.
+%
+%To describe the method, we first look at the diagonal entries of the covariance matrix of $z$. By definition, $\hat{D}_{jj} = 1$, and we can also simplify
+%$$\left(\hat{D}A_c \hat{D}^T \right)_{jj} = \sum_{k \in c} \hat{D}_{jk}^2$$
+%Let $r_{jk}$ be the correlation between SNPs $j$ and $k$ in the underlying population. Then $E[\hat{D}_{jk}^2] \approx r_{jk}^2 + 1/N$.
+%Now we can write
+%\begin{align*}
+%E[z_j^2] &= \left(\sigma^2_e \hat{D} + N \sum_c v(c) \hat{D}A_c \hat{D}^T\right)_{jj}\\
+%&= \sigma^2_e + N \sum_c v(c)  \sum_{k \in c} (r_{jk}^2 + 1/N)\\
+%&= \sigma^2_e + \sum_c v(c) M_c + N \sum_c v(c) \sum_{k \in c} r_{jk}^2,
+%\end{align*}
+%where $M_c$ is the number of SNPs in category $c$. Note now that the variance of $y_i$, which we have set to one, is equal to $\sigma^2_e + \sum_c v(c) M_c$, so we can replace the first two terms with 1. We will let $\ell(j,c) := \sum_{k \in c} r_{jk}^2$, and we will write $\chi^2_j$ instead of $z_j^2$. This gives us our main LD Score equation:
+%$$E[\chi^2_j] \approx 1 + N \sum_c v(c) \ell(j,c).$$
+%We can estimate $\ell(j,c)$ from a reference panel, and then estimate $v(c)$ via multivariate regression of $\chi^2_j$ against $\ell(j,c)$; this is multivariate LD Score Regression. We then estimate the heritability of category $c$ by multiplying $v(c)$ by $M_c$.
+
+\subsection{LD Score-binned LD Score Regression}
+[This section included for historical reasons, since this method no longer seems to be the best method.]
+
+
+Another approach to model misspecification bias is to allow the variance of $\beta_j$ to depend on $\ell(j,DHS)$ and $\ell(j,Other)$ as well as on whether $j$ is a DHS SNP or not. The potentially problematic relationship between causal effect size and $\ell(j,DHS)$ would then be captured by the model, removing the main source of bias. 
+
+Because the dependence of effect size on $\ell(j,DHS)$ and $\ell(j,Other)$ could take many different forms, we choose to model the dependence discretely, by binning. So we choose a number of bins $k$, and then choose $k-1$ cutoff points for $\ell(j,DHS)$ and $k-1$ cutoff points for $\ell(j,Other)$. Then the category of SNP $j$ is determined by (a) which bin $\ell(j,DHS)$ falls in, (b) which bin $\ell(j,Other)$ falls in, and (c) whether SNP $j$ is in a DHS region or not, for a total of $2k^2$ categories. The heritabilities of the $k^2$ DHS categories are then summed to give an estimate of DHS heritability, and the heritabilities of the $k^2$ non-DHS categories are summed to give an estimate of non-DHS heritability. 
+
+So far, this method only applies when there is a single annotation and our only goal is to estimate the heritability within this annotation, and not to any more involved analysis.
+
+\subsection{Other methodological considerations}
+To minimize standard error, we weight the regression in a way that takes into account both over-counting and heteroskedasticity due to LD. We use block jackknife with 200 equally sized blocks to estimate standard errors. When there is a lot of noise in the LD Scores, for example if there are very small categories, then attenuation bias can affect the results; it can be corrected by estimating variance in LD Scores using jackknife while they are being estimated, though so far we haven't been doing this. We assume for now that imputation error in our regression SNPs is negligible, and to satisfy this assumption we do regression with only hapmap3 SNP. Note that this does not mean that we are assuming only hapmap3 SNPs are causal.
+
+\subsection{Case-control traits}
+The generalization of the derivation above to case-control traits can be found in Brendan's genetic correlation draft.
+
+\section{Simulation results}
+
+\subsection{Annotations}
+The categories we used in our simulations were:
+\begin{itemize}
+\item Coding (UCSC)
+\item UTR (UCSC)
+\item Promoter (UCSC)
+\item Intron (UCSC)
+\item Conserved (Ward and Kellis, 2012 Science)
+\item Digital Genomic Footprint (ENCODE)
+\item Transcription Factor Binding Site (ENCODE)
+\item Fantom 5 Enhancer (Andersson et al, 2014 Nature)
+\item Strong Enhancers (Hoffman)
+\item DHS in fetal cells (Trynka)
+\item DHS in any cell type (Trynka)
+\item H3K4me1 (Trynka)
+\item H3K4me3 (Trynka)
+\item H3K9ac (Trynka)
+\item The Hoffman segmentation
+\end{itemize}
+We also created a one-dimensional continuous annotation to reflect the total amount of functional enrichment in the region surrounding a SNP. We did this by combining these fourteen functional annotations (not including the Hoffman segmentation), and assigning to SNP $j$  the average number of functional categories that a SNP in a 2K-SNP window centered at $j$ belongs to. However, including this extra annotation increased our standard errors unreasonably, so we removed it.
+
+
+\subsection{Simulation setup}
+For each simulation, I chose a set of SNPs and simulated causal effect sizes to be 0 outside of that set and infinitesimal within the set. I did three sets of simulations: one in which the causal set is DHS SNPs, one in which it is Fantom 5 Enhancer SNPs, and one in which it is Coding SNPs. I used the genotypes from WTCCC1 NBS, chromosome 16, which has 2713 individuals and approximately 100K SNPs. I performed 100 simulations for each genetic architecture, and  used a few different versions of LD Score regression to estimate the heritability of DHS SNPs. 
+
+\subsection{LD Score-binned LD Score Regression}
+[Again, included for historical reasons.] The table below shows the results for LD Score-binned LD Score Regression for different values of the parameter $k$. When $k = 1$---i.e.\ for standard LD Score regression---the estimates are extremely biased for the two cases in which the model is misspecified. As $k$ grows, the estimates for the Enhancer simulations get closer to the truth, while the Coding estimates seem to converge to the wrong answer. Moreover, the overall heritability is deflated for larger values of $k$, maybe due to attenuation bias. Means and standard errors over 100 simulations are reported.
+
+\begin{center}
+\begin{tabular}{c|cc|cc|cc}
+Causal cat. & \multicolumn{2}{c|}{DHS} & \multicolumn{2}{c|}{Fantom 5 Enhancer} & \multicolumn{2}{c}{Coding} \\
+\hline
+Est. cat. & DHS & Other & DHS & Other & DHS & Other\\
+\hline
+Truth & 0.5 & 0 & 0.372 & 0.128 & 0.15 & 0.35\\
+%REML &&&&&&\\
+$k=1$ & 0.518 (0.011) & -0.014 (0.009) &0.722 (0.016) & -0.265 (0.014) &0.453 (0.010) & 0.100 (0.009) \\
+\hline
+$k=5$   & 0.445 (0.022) & 0.019 (0.022) & 0.610 (0.026) & -0.158 (0.026) & 0.425 (0.026) & -0.018 (0.024)\\
+$k=10$ & 0.470 (0.024) & -0.014 (0.025) & 0.565 (0.034) & -0.114 (0.033) & 0.139 (0.032) & 0.268 (0.032)\\
+$k=20$ & 0.421 (0.048) & 0.035 (0.047) & 0.097 (0.073) & 0.311 (0.073) & 0.009 (0.047) & 0.405 (0.046)\\
+$k=30$ & 0.409 (0.035) & 0.039 (0.033) &0.364 (0.041) & 0.047 (0.041) & 0.034 (0.040) & 0.390 (0.041)\\
+$k=40$ & 0.450 (0.041) & 0.004 (0.040) & 0.278 (0.050) &0.125 (0.050) &-0.035 (0.043) & 0.488 (0.045)\\
+\end{tabular}
+\label{2dldbinning}
+\end{center}
+
+\subsection{Including more categories}
+
+We next tested the model that included all of the functional annotations described above. To simulate an unknown causal functional annotation, we removed the causal category from our model before fitting it. We abbreviate the two approaches Incl and Excl, reflection whether they include or exclude the causal category from the model. We also included the naive two-category analysis for comparison. In each case, we estimated DHS heritability. 
+\begin{table}
+\begin{center}
+\begin{tabular}{c|cc|cc|cc}
+Causal cat. & \multicolumn{2}{c|}{DHS} & \multicolumn{2}{c|}{Fantom 5 Enhancer} & \multicolumn{2}{c}{Coding} \\
+\hline
+$h^2$ of: & DHS & Other & DHS & Other & DHS & Other\\
+\hline
+Truth & 0.5 & 0 & 0.372 & 0.128 & 0.15 & 0.35\\
+%REML &&&&&&\\
+two categories & 0.518 (0.011) & -0.014 (0.009) &0.722 (0.016) & -0.265 (0.014) &0.453 (0.010) & 0.100 (0.009) \\
+\hline
+Incl & 0.521 (0.012) & -0.017 (0.010) & 0.367 (0.015) & 0.120 (0.014) & 0.182 (0.011) & 0.321 (0.012)\\
+Excl. &- & -& 0.319 (0.015) & 0.160 (0.014)& 0.116 (0.011) & 0.387 (0.012)\\
+%Incl-cts & 15.0 (13.3) &-22.8 (21.5) & -0.292 (0.621) & 1.728 (1.013) &0.897 (0.864) & -1.288 (0.765)\\
+%Excl-cts &- & - &0.917 (1.44) & -1.42 (2.05) & 0.091 (0.07) & 0.275 (0.110) \\
+\end{tabular}
+\label{2dldbinning}
+\caption{Evaluation of LD Score with twenty overlapping categories on simulated data, including and excluding the simulated causal category.}
+\end{center}
+\end{table}
+
+\subsection{Analyses as in Gusev et al bioRxiv}
+\label{GusevComparison}
+To compare to REML, I used the same seven categories that Sasha used in his paper, and meta-analyzed the seven WTCCC1 traits. There are several versions of this comparison. In Tables~\ref{WT1.1} and \ref{WT1.2} I present:
+\begin{itemize}
+\item Genotyped SNPs, intercept constrained to one (to match the variance components model), inverse-variance weighting, in-sample vs out of sample LD.
+\item Genotyped SNPs, intercept unconstrained, inverse-variance weighting, in-sample vs out of sample LD.
+\item Imputed SNPs, intercept constrained, inverse-variance weighting vs sample-size weighting. (Inverse-variance does not ensure that the proportions sum to one, but sample-size weighting does.)
+\item Imputed SNPs, intercept unconstrained, inverse-variance weighting vs sample-size weighting.
+\end{itemize}
+Not all of the comparisons match well, but I think this is okay because in practice we use many more categories than this.
+
+\begin{table}
+\begin{center}
+\begin{tabular}[h]{c| l p{2.5cm} p{2.5cm}}
+& REML & LD Score Reg, in-sample LD & LD Score Reg, 1000G LD\\
+\hline
+UTR & 0.03 (0.01) & 0.06 (0.02) & 0.07 (0.02) \\
+Coding & 0.03 (0.01) & 0.04 (0.01) & 0.04 (0.01) \\
+Promoter & 0.03 (0.02) & 0.03 (0.02) & 0.04 (0.02) \\
+DHS & 0.42 (0.05) & 0.37 (0.05) & 0.39 (0.06) \\
+Intron & 0.21 (0.04) & 0.21 (0.04) & 0.18 (0.05) \\
+Other & 0.26 (0.05) & 0.27 (0.05) & 0.24 (0.05) \\
+\end{tabular}
+\end{center}
+\caption{Comparison of REML to LD Score Regression with intercept constrained to one, for in-sample and out-of-sample LD. Results are a meta-analysis of seven WTCCC1 traits.}
+\label{WT1.1}
+\end{table}
+
+\begin{table}
+\begin{center}
+\begin{tabular}[h]{c| l p{2.5cm} p{2.5cm}}
+& REML & LD Score Reg, in-sample LD & LD Score Reg, 1000G LD\\
+\hline
+UTR & 0.03 (0.01) & 0.07 (0.02) & 0.07 (0.02) \\
+Coding & 0.03 (0.01) & 0.04 (0.01) & 0.04 (0.01) \\
+Promoter & 0.03 (0.02) & 0.03 (0.02) & 0.04 (0.02) \\
+DHS & 0.42 (0.05) & 0.38 (0.06) & 0.4 (0.07) \\
+Intron & 0.21 (0.04) & 0.21 (0.05) & 0.18 (0.06) \\
+Other & 0.26 (0.05) & 0.25 (0.06) & 0.23 (0.07) \\
+\end{tabular}
+\end{center}
+\caption{Comparison of REML to LD Score Regression with unconstrained intercept, for in-sample and out-of-sample LD. Results are a meta-analysis of seven WTCCC1 traits.}
+\label{WT1.2}
+\end{table}
+
+\begin{table}[H]
+\begin{center}
+\begin{tabular}[h]{ p{2.5cm} | l p{2.5cm}  p{2.5cm}  p{2.5cm}}
+& REML, inv-var weight & LD Score Reg, inv-var weight & REML, sample size weight & LD Score Reg, sample size weight\\
+\hline
+UTR & 0.058 (0.033) & 0.13 (0.05) & 0.068 & 0.18 (0.06)\\
+Coding & 0.078 (0.033) & 0.12 (0.04) & 0.075 & 0.1 (0.04)\\
+Promoter & 0.011 (0.042) & -0.02 (0.05) & 0.019 & 0.04 (0.06)\\
+DHS & 0.644 (0.115) & 0.81 (0.15) & 0.607 & 0.89 (0.18)\\
+Intron & 0.103 (0.068) & -0.08 (0.08) & 0.122 & -0.14 (0.1)\\
+Other & 0.106 (0.071) & -0.11 (0.07) & 0.109 & -0.06 (0.09)\\
+\end{tabular}
+\caption{Comparison on WTCCC1 imputed SNPs, unconstrained intercept.}
+\end{center}
+\end{table}
+
+\begin{table}[H]
+\begin{center}
+\begin{tabular}[h]{ p{2.5cm} | l p{2.5cm}  p{2.5cm}  p{2.5cm}}
+& REML, inv-var weight & LD Score Reg, inv-var weight & REML, sample size weight & LD Score Reg, sample size weight\\
+\hline
+UTR & 0.058 (0.033) & 0.11 (0.03) & 0.068 & 0.12 (0.04)\\
+Coding & 0.078 (0.033) & 0.09 (0.03) & 0.075 & 0.08 (0.03)\\
+Promoter & 0.011 (0.042) & -0.01 (0.04) & 0.019 & 0.04 (0.04)\\
+DHS & 0.644 (0.115) & 0.81 (0.11) & 0.607 & 0.86 (0.12)\\
+Intron & 0.103 (0.068) & -0.06 (0.06) & 0.122 & -0.07 (0.07)\\
+Other & 0.106 (0.071) & -0.03 (0.05) & 0.109 & -0.02 (0.06)\\
+\end{tabular}
+\caption{Comparison on WTCCC1 imputed SNPs, intercept constrained to one.}
+\end{center}
+\end{table}
+
+\section{Data}
+We applied the method to several real datasets:
+\begin{center}
+\begin{tabular}{llllll}
+Phenotype & Reference/consortium & $N_{cases}$ & $N_{controls} $ & $N$ \\
+\hline
+ADHD & Neale et al., J Am Acad Adolesc Psych 2010 & 896 & 2,455 & - \\
+Bipolar Disorder & Bipolar Working Group of the PGC, 2011 Nat Genet & 4,496 & 42,422 & -\\
+Major Depression & Ripke et al.c 2013 Mol Psych &9,240 & 9,519 & -\\
+Schizophrenia  & SCZ Working Group of the PGC, 2014 Nature & 31,335 & 38,765 & -\\
+Crohn's Disease & Jostins et al., 2012 Nature & 5,956 & 14, 927 & -\\
+Ulcerative Colitis & Jostins et al., 2012 Nature & 6,968 & 20,464 & -\\
+Rheumatoid Arthritis & Okada et al., 2014 Nature & 8,875 &29,367 & -\\
+Breast cancer & Game On meta-analysis & 16,003 & 45,769 & - \\
+Coronary Artery Disease & Schunkert et al., Nat Genet 2011 &22,233 & 64,762 & - \\
+Type-2 Diabetes& Morris et al., 2012 Nat Genet & 12,171 & 56,862 & - \\
+BMI & Speliotes et al., 2010 Nat Genet & - & - & 249,796 \\
+Height & Lango Allen et al., 2010 Nature & - & - & 183,727\\
+\end{tabular}
+\end{center}
+
+\section{Results}
+%remove h2 set with lambda_gc, remove _obs for quantitative traits
+The tables below contain heritability estimates for each of the phenotypes and annotations we considered. There are two sets of results in each table: one for a model that assumes i.i.d.\ per allele effects (pa), and one with i.i.d.\ per normalized genotype effects (png). Enrichment is Prop $h^2_g$ / Prop SNPs. Highlights include:
+\begin{itemize}
+\item Auto-immune traits are, on the whole, much more enriched than psychiatric traits.
+\item Conserved enrichment is very big across most phenotypes, sometimes even more enrichment than Coding enrichment.
+\item FANTOM5 enhancers show very high enrichment in auto-immune traits, but no enrichment in other traits.
+\item Sometimes Fetal DHS is enriched more than DHS as a whole, sometimes it is enriched less, and sometimes it is depleted.
+\item We still have a model misspecification problem that can be seen in occasional negative heritabilities for small categories, especially CTCF and FANTOM5 enhancers. 
+\end{itemize}
+I am planning to display these results as one bar chart per annotation that we're interested, with a bar for each phenotype, phenotypes grouped by psych/auto-immune/etc. Do any of you have ideas for how to group the other traits or for other nice ways of displaying this on, for example, slides?
+
+\section{Next Steps}
+For some phenotypes there is still negative heritability in some categories. I think the right way to deal with this is to add in more annotations, so next I will make LD Score that crosses these categories with binned total functionality and with LD Score, and I'll add an annotation that is the union of all these annotations plus a big window. Hopefully this will also help with the inflated intercepts we see for some traits. We could also consider adding categories for intersections of certain pairs of categories where we think our additive assumption is not a good one, though I'm not sure which intersections those would be. I'd also like to break Coding up into synonymous/nonsynonymous, and UTR into 5' and 3' UTR. Also, since we are not averaging across phenotypes, we should constrain our method to return non-negative heritabilites. This might be a little tricky, now that the coefficients can legitimately be negative, but I think that in the final version this is the right thing to do. Also coming soon: cell-type specific results and results on continuous annotations including b-statistic and recombination rate.
+
+I also think that sometimes it will be more useful to look at the coefficients than the heritability estimates, even if they are less stable. For example, I think Conserved enrichment is best thought about in terms of heritability, but for cell-type specific results and/or fetal enrichment, looking at the coefficient itself makes more sense.
+
+For validation, I'd like to try risk prediction, though Alkes is not very optimistic about this. One way to do this would be to (a) learn a prior variance for each SNP based on this large RA (for example) dataset, maybe taking into account the standard error by putting a prior on enrichment of $N(1,sigma^2)$ for some reasonable $\sigma^2$, (b) make a GRM from WTCCC1 RA genotypes where each SNP is weighted in proportion to its prior variance, and (c) run BLUP and compare to BLUP with an un-weighted GRM. I'm not sure if this is what Sasha did or not but I'm optimistic that for a trait like RA where the enrichments are large, it could make a difference.
+
+One last thought: We have some prior information about enrichments; at the very least, they do not lead to any heritability being zero, but we also think they are not likely to be very extreme. Maybe we should incorporate this prior information into the model formally.
+
+
+
+\begin{table}[H]
+\begin{center}
+\begin{tabular}{l|lllll}
+Category  & Prop.\ SNPs & Prop.\ $h^2_g$ (pa) & Enrichment (pa) & Prop.\ $h^2_g$ (png) & Enrichment (png)\\
+\hline
+Coding (UCSC)  &  0.015 & 0.079 (0.017) & 5.375 (1.189) &
+0.079 (0.017) & 5.408 (1.167) \\
+Conserved (Ward-Kellis)  &  0.026 & 0.361 (0.035) & 13.835 (1.328) &
+0.347 (0.034) & 13.302 (1.311) \\
+DGF (ENCODE)  &  0.138 & 0.227 (0.076) & 1.649 (0.551) &
+0.217 (0.075) & 1.574 (0.544) \\
+DHS (Trynka)  &  0.168 & 0.296 (0.069) & 1.766 (0.412) &
+0.341 (0.066) & 2.034 (0.396) \\
+Enhancer (Andersson)  &  0.004 & -0.018 (0.013) & -4.094 (3.099) &
+-0.021 (0.013) & -4.845 (2.977) \\
+Enhancer (Hoffman)  &  0.063 & 0.075 (0.031) & 1.189 (0.483) &
+0.087 (0.03) & 1.375 (0.47) \\
+Fetal DHS (Trynka)  &  0.085 & 0.295 (0.061) & 3.485 (0.716) &
+0.309 (0.058) & 3.649 (0.688) \\
+H3K4me1 (Trynka)  &  0.427 & 0.68 (0.041) & 1.594 (0.097) &
+0.676 (0.044) & 1.585 (0.102) \\
+H3K4me3 (Trynka)  &  0.133 & 0.24 (0.041) & 1.797 (0.31) &
+0.25 (0.04) & 1.875 (0.299) \\
+H3K9ac (Trynka)  &  0.126 & 0.306 (0.039) & 2.43 (0.31) &
+0.319 (0.038) & 2.526 (0.303) \\
+Intron (UCSC)  &  0.387 & 0.509 (0.025) & 1.315 (0.066) &
+0.503 (0.025) & 1.298 (0.065) \\
+Promoter (UCSC)  &  0.031 & 0.022 (0.02) & 0.695 (0.654) &
+0.025 (0.02) & 0.809 (0.65) \\
+TFBS (ENCODE)  &  0.132 & 0.197 (0.064) & 1.489 (0.481) &
+0.235 (0.063) & 1.771 (0.472) \\
+UTR (UCSC)  &  0.012 & 0.054 (0.014) & 4.694 (1.229) &
+0.06 (0.014) & 5.165 (1.236) \\
+CTCF (Hoffman)  &  0.024 & -0.025 (0.025) & -1.034 (1.056) &
+-0.013 (0.025) & -0.532 (1.055) \\
+Prom Flank (Hoffman)  &  0.008 & 0.048 (0.022) & 5.642 (2.598) &
+0.033 (0.02) & 3.858 (2.337) \\
+Repressed (Hoffman)  &  0.935 & 0.841 (0.039) & 0.899 (0.041) &
+0.845 (0.041) & 0.903 (0.044) \\
+Transcribed (Hoffman)  &  0.345 & 0.379 (0.036) & 1.098 (0.104) &
+0.365 (0.034) & 1.057 (0.097) \\
+TSS (Hoffman)  &  0.018 & 0.079 (0.032) & 4.362 (1.741) &
+0.079 (0.03) & 4.34 (1.622) \\
+Weak Enh. (Hoffman)  &  0.021 & 0.053 (0.024) & 2.51 (1.152) &
+0.059 (0.024) & 2.793 (1.153) \\
+All annotations  &  1.0 & 1.0 (0.041) & 1.0 (0.041) &
+1.0 (0.044) & 1.0 (0.044) \\
+\end{tabular}
+\caption{Schizophrenia.
+Per allele intercept = 1.083 (0.009),
+png intercept = 1.054 (0.011).
+Per allele $h^2_{obs}(5\myhyphen50) = 0.415 (0.0)$,
+png $h^2_{obs}(5\myhyphen50) = 0.406 (0.0)$.}
+\end{center}
+\end{table}
+
+
+
+\begin{table}[H]
+\begin{center}
+\begin{tabular}{l|lllll}
+Category  & Prop.\ SNPs & Prop.\ $h^2_g$ (pa) & Enrichment (pa) & Prop.\ $h^2_g$ (png) & Enrichment (png)\\
+\hline
+Coding (UCSC)  &  0.015 & 0.1 (0.018) & 6.806 (1.245) &
+0.081 (0.019) & 5.529 (1.283) \\
+Conserved (Ward-Kellis)  &  0.026 & 0.237 (0.025) & 9.09 (0.948) &
+0.235 (0.025) & 9.008 (0.97) \\
+DGF (ENCODE)  &  0.138 & 0.628 (0.073) & 4.567 (0.531) &
+0.53 (0.077) & 3.855 (0.557) \\
+DHS (Trynka)  &  0.168 & 0.435 (0.074) & 2.596 (0.442) &
+0.39 (0.076) & 2.323 (0.453) \\
+Enhancer (Andersson)  &  0.004 & -0.032 (0.015) & -7.312 (3.496) &
+-0.028 (0.016) & -6.553 (3.745) \\
+Enhancer (Hoffman)  &  0.063 & 0.231 (0.035) & 3.646 (0.554) &
+0.247 (0.038) & 3.9 (0.605) \\
+Fetal DHS (Trynka)  &  0.085 & 0.365 (0.057) & 4.303 (0.677) &
+0.331 (0.062) & 3.907 (0.726) \\
+H3K4me1 (Trynka)  &  0.427 & 0.619 (0.041) & 1.451 (0.096) &
+0.605 (0.045) & 1.419 (0.105) \\
+H3K4me3 (Trynka)  &  0.133 & 0.386 (0.04) & 2.899 (0.299) &
+0.381 (0.042) & 2.855 (0.316) \\
+H3K9ac (Trynka)  &  0.126 & 0.367 (0.038) & 2.907 (0.302) &
+0.357 (0.039) & 2.831 (0.307) \\
+Intron (UCSC)  &  0.387 & 0.523 (0.023) & 1.349 (0.059) &
+0.536 (0.025) & 1.385 (0.063) \\
+Promoter (UCSC)  &  0.031 & 0.036 (0.016) & 1.155 (0.526) &
+0.023 (0.017) & 0.739 (0.539) \\
+TFBS (ENCODE)  &  0.132 & 0.309 (0.062) & 2.335 (0.469) &
+0.344 (0.063) & 2.597 (0.475) \\
+UTR (UCSC)  &  0.012 & 0.051 (0.015) & 4.443 (1.335) &
+0.025 (0.016) & 2.13 (1.42) \\
+CTCF (Hoffman)  &  0.024 & -0.059 (0.029) & -2.487 (1.222) &
+-0.012 (0.032) & -0.5 (1.334) \\
+Prom Flank (Hoffman)  &  0.008 & 0.032 (0.018) & 3.768 (2.131) &
+0.005 (0.019) & 0.653 (2.222) \\
+Repressed (Hoffman)  &  0.935 & 0.797 (0.036) & 0.852 (0.039) &
+0.785 (0.042) & 0.84 (0.045) \\
+Transcribed (Hoffman)  &  0.345 & 0.333 (0.032) & 0.963 (0.092) &
+0.328 (0.033) & 0.95 (0.097) \\
+TSS (Hoffman)  &  0.018 & 0.089 (0.021) & 4.909 (1.175) &
+0.077 (0.023) & 4.216 (1.238) \\
+Weak Enh. (Hoffman)  &  0.021 & 0.178 (0.029) & 8.449 (1.391) &
+0.189 (0.032) & 8.984 (1.509) \\
+All annotations  &  1.0 & 1.0 (0.036) & 1.0 (0.036) &
+1.0 (0.041) & 1.0 (0.041) \\
+\end{tabular}
+\caption{Bipolar Disorder.
+Per allele intercept = 1.03 (0.004),
+png intercept = 1.024 (0.005).
+Per allele $h^2_{obs}(5\myhyphen50) = 0.152 (0.0)$,
+png $h^2_{obs}(5\myhyphen50) = 0.151 (0.0)$.}
+\end{center}
+\end{table}
+
+
+
+\begin{table}[H]
+\begin{center}
+\begin{tabular}{l|lllll}
+Category  & Prop.\ SNPs & Prop.\ $h^2_g$ (pa) & Enrichment (pa) & Prop.\ $h^2_g$ (png) & Enrichment (png)\\
+\hline
+Coding (UCSC)  &  0.015 & -0.041 (0.05) & -2.811 (3.433) &
+-0.065 (0.073) & -4.447 (4.975) \\
+Conserved (Ward-Kellis)  &  0.026 & 0.782 (0.082) & 30.013 (3.165) &
+0.831 (0.117) & 31.899 (4.478) \\
+DGF (ENCODE)  &  0.138 & -0.119 (0.211) & -0.867 (1.536) &
+-0.135 (0.321) & -0.982 (2.332) \\
+DHS (Trynka)  &  0.168 & -0.06 (0.232) & -0.359 (1.385) &
+-0.323 (0.345) & -1.923 (2.058) \\
+Enhancer (Andersson)  &  0.004 & 0.041 (0.043) & 9.401 (10.008) &
+0.056 (0.066) & 12.816 (15.14) \\
+Enhancer (Hoffman)  &  0.063 & 0.437 (0.124) & 6.906 (1.959) &
+0.406 (0.178) & 6.414 (2.819) \\
+Fetal DHS (Trynka)  &  0.085 & -0.399 (0.173) & -4.705 (2.046) &
+-0.489 (0.257) & -5.771 (3.034) \\
+H3K4me1 (Trynka)  &  0.427 & 0.747 (0.135) & 1.75 (0.317) &
+0.68 (0.2) & 1.593 (0.469) \\
+H3K4me3 (Trynka)  &  0.133 & 0.139 (0.123) & 1.046 (0.926) &
+0.068 (0.169) & 0.508 (1.27) \\
+H3K9ac (Trynka)  &  0.126 & 0.038 (0.117) & 0.303 (0.926) &
+-0.008 (0.164) & -0.065 (1.303) \\
+Intron (UCSC)  &  0.387 & 0.612 (0.069) & 1.58 (0.179) &
+0.649 (0.104) & 1.675 (0.268) \\
+Promoter (UCSC)  &  0.031 & 0.04 (0.058) & 1.282 (1.874) &
+0.033 (0.089) & 1.06 (2.846) \\
+TFBS (ENCODE)  &  0.132 & -0.378 (0.189) & -2.853 (1.427) &
+-0.412 (0.261) & -3.109 (1.971) \\
+UTR (UCSC)  &  0.012 & 0.005 (0.048) & 0.419 (4.188) &
+-0.054 (0.073) & -4.64 (6.317) \\
+CTCF (Hoffman)  &  0.024 & 0.11 (0.097) & 4.599 (4.07) &
+0.182 (0.149) & 7.631 (6.248) \\
+Prom Flank (Hoffman)  &  0.008 & -0.159 (0.064) & -18.846 (7.543) &
+-0.27 (0.093) & -31.983 (11.089) \\
+Repressed (Hoffman)  &  0.935 & 0.999 (0.11) & 1.068 (0.117) &
+1.094 (0.178) & 1.17 (0.19) \\
+Transcribed (Hoffman)  &  0.345 & 0.344 (0.102) & 0.997 (0.296) &
+0.302 (0.15) & 0.874 (0.434) \\
+TSS (Hoffman)  &  0.018 & 0.12 (0.061) & 6.594 (3.339) &
+0.23 (0.093) & 12.625 (5.114) \\
+Weak Enh. (Hoffman)  &  0.021 & 0.434 (0.09) & 20.587 (4.265) &
+0.55 (0.132) & 26.082 (6.264) \\
+All annotations  &  1.0 & 1.0 (0.113) & 1.0 (0.113) &
+1.0 (0.187) & 1.0 (0.187) \\
+\end{tabular}
+\caption{ADHD.
+Per allele intercept = 1.002 (0.003),
+png intercept = 1.007 (0.004).
+Per allele $h^2_{obs}(5\myhyphen50) = 0.52 (0.0)$,
+png $h^2_{obs}(5\myhyphen50) = 0.374 (0.0)$.}
+\end{center}
+\end{table}
+
+
+
+\begin{table}[H]
+\begin{center}
+\begin{tabular}{l|lllll}
+Category  & Prop.\ SNPs & Prop.\ $h^2_g$ (pa) & Enrichment (pa) & Prop.\ $h^2_g$ (png) & Enrichment (png)\\
+\hline
+Coding (UCSC)  &  0.015 & 0.062 (0.033) & 4.226 (2.281) &
+0.069 (0.041) & 4.697 (2.771) \\
+Conserved (Ward-Kellis)  &  0.026 & 0.209 (0.047) & 8.004 (1.793) &
+0.221 (0.054) & 8.491 (2.086) \\
+DGF (ENCODE)  &  0.138 & 0.054 (0.131) & 0.395 (0.953) &
+0.178 (0.157) & 1.296 (1.138) \\
+DHS (Trynka)  &  0.168 & 0.185 (0.138) & 1.1 (0.82) &
+0.114 (0.167) & 0.682 (0.993) \\
+Enhancer (Andersson)  &  0.004 & -0.08 (0.025) & -18.418 (5.848) &
+-0.051 (0.031) & -11.7 (7.192) \\
+Enhancer (Hoffman)  &  0.063 & 0.158 (0.063) & 2.496 (0.99) &
+0.075 (0.073) & 1.182 (1.151) \\
+Fetal DHS (Trynka)  &  0.085 & 0.158 (0.104) & 1.87 (1.228) &
+0.255 (0.122) & 3.008 (1.436) \\
+H3K4me1 (Trynka)  &  0.427 & 0.636 (0.079) & 1.491 (0.184) &
+0.601 (0.099) & 1.41 (0.231) \\
+H3K4me3 (Trynka)  &  0.133 & 0.18 (0.068) & 1.353 (0.508) &
+0.146 (0.08) & 1.098 (0.603) \\
+H3K9ac (Trynka)  &  0.126 & 0.181 (0.057) & 1.433 (0.45) &
+0.214 (0.069) & 1.701 (0.544) \\
+Intron (UCSC)  &  0.387 & 0.506 (0.038) & 1.306 (0.097) &
+0.489 (0.049) & 1.263 (0.128) \\
+Promoter (UCSC)  &  0.031 & 0.023 (0.028) & 0.723 (0.897) &
+0.041 (0.036) & 1.302 (1.149) \\
+TFBS (ENCODE)  &  0.132 & 0.186 (0.105) & 1.402 (0.795) &
+0.247 (0.122) & 1.865 (0.917) \\
+UTR (UCSC)  &  0.012 & 0.014 (0.027) & 1.191 (2.303) &
+0.034 (0.032) & 2.97 (2.775) \\
+CTCF (Hoffman)  &  0.024 & -0.184 (0.061) & -7.73 (2.578) &
+-0.154 (0.079) & -6.472 (3.324) \\
+Prom Flank (Hoffman)  &  0.008 & 0.05 (0.036) & 5.901 (4.251) &
+0.072 (0.043) & 8.518 (5.129) \\
+Repressed (Hoffman)  &  0.935 & 0.877 (0.065) & 0.938 (0.07) &
+0.835 (0.088) & 0.893 (0.094) \\
+Transcribed (Hoffman)  &  0.345 & -0.005 (0.05) & -0.015 (0.145) &
+-0.066 (0.064) & -0.191 (0.184) \\
+TSS (Hoffman)  &  0.018 & 0.114 (0.036) & 6.252 (1.995) &
+0.191 (0.044) & 10.499 (2.416) \\
+Weak Enh. (Hoffman)  &  0.021 & -0.04 (0.056) & -1.907 (2.652) &
+-0.07 (0.065) & -3.321 (3.092) \\
+All annotations  &  1.0 & 1.0 (0.061) & 1.0 (0.061) &
+1.0 (0.085) & 1.0 (0.085) \\
+\end{tabular}
+\caption{Major Depression.
+Per allele intercept = 1.01 (0.003),
+png intercept = 1.011 (0.004).
+Per allele $h^2_{obs}(5\myhyphen50) = 0.17 (0.0)$,
+png $h^2_{obs}(5\myhyphen50) = 0.148 (0.0)$.}
+\end{center}
+\end{table}
+
+
+
+\begin{table}[H]
+\begin{center}
+\begin{tabular}{l|lllll}
+Category  & Prop.\ SNPs & Prop.\ $h^2_g$ (pa) & Enrichment (pa) & Prop.\ $h^2_g$ (png) & Enrichment (png)\\
+\hline
+Coding (UCSC)  &  0.015 & 0.186 (0.023) & 12.702 (1.554) &
+0.193 (0.022) & 13.198 (1.511) \\
+Conserved (Ward-Kellis)  &  0.026 & 0.227 (0.026) & 8.702 (0.998) &
+0.221 (0.026) & 8.48 (0.98) \\
+DGF (ENCODE)  &  0.138 & 0.947 (0.069) & 6.88 (0.499) &
+0.875 (0.071) & 6.362 (0.517) \\
+DHS (Trynka)  &  0.168 & 0.388 (0.071) & 2.315 (0.421) &
+0.507 (0.076) & 3.024 (0.45) \\
+Enhancer (Andersson)  &  0.004 & 0.158 (0.018) & 36.41 (4.049) &
+0.157 (0.018) & 36.272 (4.212) \\
+Enhancer (Hoffman)  &  0.063 & 0.424 (0.037) & 6.702 (0.587) &
+0.441 (0.039) & 6.957 (0.617) \\
+Fetal DHS (Trynka)  &  0.085 & 0.422 (0.065) & 4.977 (0.772) &
+0.458 (0.067) & 5.404 (0.789) \\
+H3K4me1 (Trynka)  &  0.427 & 1.072 (0.036) & 2.514 (0.085) &
+1.068 (0.039) & 2.504 (0.092) \\
+H3K4me3 (Trynka)  &  0.133 & 0.642 (0.037) & 4.816 (0.28) &
+0.642 (0.038) & 4.815 (0.286) \\
+H3K9ac (Trynka)  &  0.126 & 0.309 (0.032) & 2.451 (0.257) &
+0.346 (0.034) & 2.743 (0.271) \\
+Intron (UCSC)  &  0.387 & 0.391 (0.019) & 1.008 (0.049) &
+0.382 (0.02) & 0.985 (0.051) \\
+Promoter (UCSC)  &  0.031 & 0.169 (0.02) & 5.429 (0.641) &
+0.168 (0.019) & 5.399 (0.622) \\
+TFBS (ENCODE)  &  0.132 & 0.524 (0.064) & 3.96 (0.481) &
+0.585 (0.066) & 4.417 (0.497) \\
+UTR (UCSC)  &  0.012 & 0.094 (0.016) & 8.085 (1.341) &
+0.112 (0.017) & 9.678 (1.471) \\
+CTCF (Hoffman)  &  0.024 & -0.178 (0.031) & -7.468 (1.32) &
+-0.152 (0.033) & -6.387 (1.367) \\
+Prom Flank (Hoffman)  &  0.008 & 0.058 (0.019) & 6.897 (2.307) &
+0.055 (0.02) & 6.474 (2.32) \\
+Repressed (Hoffman)  &  0.935 & 0.849 (0.032) & 0.908 (0.034) &
+0.838 (0.036) & 0.897 (0.038) \\
+Transcribed (Hoffman)  &  0.345 & 0.391 (0.027) & 1.133 (0.079) &
+0.389 (0.027) & 1.127 (0.077) \\
+TSS (Hoffman)  &  0.018 & 0.284 (0.023) & 15.568 (1.238) &
+0.278 (0.023) & 15.281 (1.258) \\
+Weak Enh. (Hoffman)  &  0.021 & 0.143 (0.037) & 6.772 (1.768) &
+0.175 (0.041) & 8.277 (1.943) \\
+All annotations  &  1.0 & 1.0 (0.031) & 1.0 (0.031) &
+1.0 (0.036) & 1.0 (0.036) \\
+\end{tabular}
+\caption{Rheumatoid Arthritis.
+Per allele intercept = 1.017 (0.004),
+png intercept = 1.01 (0.004).
+Per allele $h^2_{obs}(5\myhyphen50) = 0.194 (0.0)$,
+png $h^2_{obs}(5\myhyphen50) = 0.193 (0.0)$.}
+\end{center}
+\end{table}
+
+
+
+\begin{table}[H]
+\begin{center}
+\begin{tabular}{l|lllll}
+Category  & Prop.\ SNPs & Prop.\ $h^2_g$ (pa) & Enrichment (pa) & Prop.\ $h^2_g$ (png) & Enrichment (png)\\
+\hline
+Coding (UCSC)  &  0.015 & 0.227 (0.021) & 15.502 (1.41) &
+0.224 (0.023) & 15.308 (1.555) \\
+Conserved (Ward-Kellis)  &  0.026 & 0.269 (0.024) & 10.325 (0.909) &
+0.293 (0.025) & 11.231 (0.951) \\
+DGF (ENCODE)  &  0.138 & 1.079 (0.08) & 7.839 (0.58) &
+1.125 (0.089) & 8.175 (0.647) \\
+DHS (Trynka)  &  0.168 & 0.644 (0.084) & 3.839 (0.5) &
+0.591 (0.088) & 3.524 (0.527) \\
+Enhancer (Andersson)  &  0.004 & 0.147 (0.025) & 33.827 (5.691) &
+0.171 (0.025) & 39.402 (5.837) \\
+Enhancer (Hoffman)  &  0.063 & 0.438 (0.037) & 6.914 (0.583) &
+0.459 (0.039) & 7.253 (0.623) \\
+Fetal DHS (Trynka)  &  0.085 & 0.573 (0.083) & 6.757 (0.975) &
+0.575 (0.084) & 6.784 (0.985) \\
+H3K4me1 (Trynka)  &  0.427 & 1.05 (0.041) & 2.46 (0.095) &
+1.052 (0.044) & 2.466 (0.104) \\
+H3K4me3 (Trynka)  &  0.133 & 0.83 (0.053) & 6.223 (0.4) &
+0.823 (0.052) & 6.172 (0.389) \\
+H3K9ac (Trynka)  &  0.126 & 0.672 (0.04) & 5.331 (0.321) &
+0.694 (0.041) & 5.503 (0.324) \\
+Intron (UCSC)  &  0.387 & 0.288 (0.021) & 0.743 (0.054) &
+0.27 (0.024) & 0.698 (0.062) \\
+Promoter (UCSC)  &  0.031 & 0.184 (0.021) & 5.898 (0.663) &
+0.166 (0.021) & 5.317 (0.675) \\
+TFBS (ENCODE)  &  0.132 & 1.088 (0.079) & 8.212 (0.6) &
+1.138 (0.079) & 8.592 (0.595) \\
+UTR (UCSC)  &  0.012 & 0.125 (0.015) & 10.781 (1.279) &
+0.123 (0.016) & 10.655 (1.387) \\
+CTCF (Hoffman)  &  0.024 & -0.089 (0.03) & -3.745 (1.271) &
+-0.068 (0.033) & -2.837 (1.382) \\
+Prom Flank (Hoffman)  &  0.008 & 0.028 (0.022) & 3.37 (2.574) &
+0.029 (0.023) & 3.383 (2.772) \\
+Repressed (Hoffman)  &  0.935 & 0.747 (0.035) & 0.799 (0.038) &
+0.751 (0.04) & 0.804 (0.043) \\
+Transcribed (Hoffman)  &  0.345 & 0.323 (0.032) & 0.935 (0.092) &
+0.34 (0.037) & 0.983 (0.108) \\
+TSS (Hoffman)  &  0.018 & 0.197 (0.027) & 10.805 (1.484) &
+0.218 (0.028) & 11.989 (1.53) \\
+Weak Enh. (Hoffman)  &  0.021 & 0.043 (0.03) & 2.04 (1.42) &
+0.086 (0.032) & 4.089 (1.516) \\
+All annotations  &  1.0 & 1.0 (0.036) & 1.0 (0.036) &
+1.0 (0.04) & 1.0 (0.04) \\
+\end{tabular}
+\caption{Ulcerative Colitis.
+Per allele intercept = 1.054 (0.004),
+png intercept = 1.053 (0.004).
+Per allele $h^2_{obs}(5\myhyphen50) = 0.283 (0.0)$,
+png $h^2_{obs}(5\myhyphen50) = 0.259 (0.0)$.}
+\end{center}
+\end{table}
+
+
+
+\begin{table}[H]
+\begin{center}
+\begin{tabular}{l|lllll}
+Category  & Prop.\ SNPs & Prop.\ $h^2_g$ (pa) & Enrichment (pa) & Prop.\ $h^2_g$ (png) & Enrichment (png)\\
+\hline
+Coding (UCSC)  &  0.015 & 0.177 (0.024) & 12.076 (1.662) &
+0.199 (0.023) & 13.555 (1.55) \\
+Conserved (Ward-Kellis)  &  0.026 & 0.29 (0.024) & 11.141 (0.935) &
+0.271 (0.023) & 10.397 (0.875) \\
+DGF (ENCODE)  &  0.138 & 1.241 (0.066) & 9.021 (0.483) &
+1.166 (0.067) & 8.478 (0.484) \\
+DHS (Trynka)  &  0.168 & 0.531 (0.066) & 3.165 (0.392) &
+0.488 (0.068) & 2.908 (0.405) \\
+Enhancer (Andersson)  &  0.004 & 0.249 (0.024) & 57.323 (5.528) &
+0.262 (0.023) & 60.478 (5.235) \\
+Enhancer (Hoffman)  &  0.063 & 0.454 (0.036) & 7.164 (0.574) &
+0.433 (0.035) & 6.836 (0.557) \\
+Fetal DHS (Trynka)  &  0.085 & 0.643 (0.059) & 7.592 (0.693) &
+0.564 (0.056) & 6.653 (0.658) \\
+H3K4me1 (Trynka)  &  0.427 & 1.03 (0.041) & 2.415 (0.096) &
+1.034 (0.043) & 2.424 (0.1) \\
+H3K4me3 (Trynka)  &  0.133 & 0.886 (0.055) & 6.649 (0.414) &
+0.836 (0.055) & 6.269 (0.412) \\
+H3K9ac (Trynka)  &  0.126 & 0.383 (0.037) & 3.034 (0.297) &
+0.358 (0.036) & 2.837 (0.288) \\
+Intron (UCSC)  &  0.387 & 0.393 (0.019) & 1.015 (0.049) &
+0.373 (0.02) & 0.962 (0.051) \\
+Promoter (UCSC)  &  0.031 & 0.219 (0.018) & 7.043 (0.57) &
+0.197 (0.019) & 6.333 (0.597) \\
+TFBS (ENCODE)  &  0.132 & 1.001 (0.078) & 7.557 (0.587) &
+0.921 (0.072) & 6.956 (0.546) \\
+UTR (UCSC)  &  0.012 & 0.069 (0.014) & 5.965 (1.226) &
+0.079 (0.015) & 6.784 (1.294) \\
+CTCF (Hoffman)  &  0.024 & -0.108 (0.025) & -4.548 (1.057) &
+-0.14 (0.027) & -5.87 (1.12) \\
+Prom Flank (Hoffman)  &  0.008 & -0.077 (0.02) & -9.178 (2.323) &
+-0.059 (0.02) & -7.059 (2.372) \\
+Repressed (Hoffman)  &  0.935 & 0.702 (0.034) & 0.75 (0.036) &
+0.738 (0.037) & 0.789 (0.04) \\
+Transcribed (Hoffman)  &  0.345 & 0.335 (0.028) & 0.969 (0.082) &
+0.317 (0.029) & 0.918 (0.085) \\
+TSS (Hoffman)  &  0.018 & 0.303 (0.024) & 16.622 (1.307) &
+0.275 (0.024) & 15.113 (1.302) \\
+Weak Enh. (Hoffman)  &  0.021 & 0.14 (0.028) & 6.65 (1.308) &
+0.16 (0.027) & 7.602 (1.258) \\
+All annotations  &  1.0 & 1.0 (0.034) & 1.0 (0.034) &
+1.0 (0.039) & 1.0 (0.039) \\
+\end{tabular}
+\caption{Crohn's Disease.
+Per allele intercept = 1.026 (0.004),
+png intercept = 1.017 (0.005).
+Per allele $h^2_{obs}(5\myhyphen50) = 0.487 (0.0)$,
+png $h^2_{obs}(5\myhyphen50) = 0.481 (0.0)$.}
+\end{center}
+\end{table}
+
+
+
+\begin{table}[H]
+\begin{center}
+\begin{tabular}{l|lllll}
+Category  & Prop.\ SNPs & Prop.\ $h^2_g$ (pa) & Enrichment (pa) & Prop.\ $h^2_g$ (png) & Enrichment (png)\\
+\hline
+Coding (UCSC)  &  0.015 & -0.023 (0.037) & -1.552 (2.552) &
+-0.023 (0.03) & -1.549 (2.063) \\
+Conserved (Ward-Kellis)  &  0.026 & 0.422 (0.105) & 16.208 (4.014) &
+0.412 (0.108) & 15.792 (4.128) \\
+DGF (ENCODE)  &  0.138 & 0.165 (0.242) & 1.2 (1.758) &
+0.213 (0.215) & 1.551 (1.565) \\
+DHS (Trynka)  &  0.168 & 0.782 (0.625) & 4.659 (3.727) &
+1.04 (0.678) & 6.198 (4.041) \\
+Enhancer (Andersson)  &  0.004 & 0.053 (0.047) & 12.113 (10.921) &
+0.075 (0.042) & 17.282 (9.784) \\
+Enhancer (Hoffman)  &  0.063 & 0.092 (0.054) & 1.459 (0.86) &
+0.16 (0.06) & 2.522 (0.954) \\
+Fetal DHS (Trynka)  &  0.085 & -0.236 (0.072) & -2.79 (0.847) &
+-0.036 (0.098) & -0.429 (1.154) \\
+H3K4me1 (Trynka)  &  0.427 & 1.202 (0.658) & 2.818 (1.544) &
+1.232 (0.661) & 2.887 (1.549) \\
+H3K4me3 (Trynka)  &  0.133 & 0.471 (0.381) & 3.535 (2.856) &
+0.532 (0.368) & 3.994 (2.758) \\
+H3K9ac (Trynka)  &  0.126 & 0.711 (0.388) & 5.635 (3.078) &
+0.695 (0.352) & 5.51 (2.795) \\
+Intron (UCSC)  &  0.387 & 0.643 (0.265) & 1.66 (0.684) &
+0.607 (0.242) & 1.566 (0.625) \\
+Promoter (UCSC)  &  0.031 & -0.055 (0.043) & -1.774 (1.381) &
+-0.058 (0.044) & -1.853 (1.403) \\
+TFBS (ENCODE)  &  0.132 & 0.669 (0.412) & 5.052 (3.107) &
+0.865 (0.479) & 6.531 (3.615) \\
+UTR (UCSC)  &  0.012 & -0.099 (0.055) & -8.573 (4.749) &
+-0.111 (0.05) & -9.61 (4.338) \\
+CTCF (Hoffman)  &  0.024 & -0.173 (0.084) & -7.277 (3.513) &
+-0.087 (0.063) & -3.669 (2.626) \\
+Prom Flank (Hoffman)  &  0.008 & 0.021 (0.032) & 2.449 (3.775) &
+0.036 (0.025) & 4.221 (3.012) \\
+Repressed (Hoffman)  &  0.935 & 0.855 (0.439) & 0.915 (0.469) &
+0.83 (0.431) & 0.887 (0.461) \\
+Transcribed (Hoffman)  &  0.345 & 0.571 (0.182) & 1.652 (0.526) &
+0.512 (0.162) & 1.483 (0.468) \\
+TSS (Hoffman)  &  0.018 & 0.069 (0.093) & 3.812 (5.088) &
+0.083 (0.084) & 4.564 (4.613) \\
+Weak Enh. (Hoffman)  &  0.021 & -0.085 (0.117) & -4.037 (5.541) &
+0.047 (0.09) & 2.248 (4.261) \\
+All annotations  &  1.0 & 1.0 (0.473) & 1.0 (0.473) &
+1.0 (0.477) & 1.0 (0.477) \\
+\end{tabular}
+\caption{Breast Cancer.
+Per allele intercept = 1.009 (0.094),
+png intercept = 1.003 (0.093).
+Per allele $h^2_{obs}(5\myhyphen50) = 0.064 (0.0)$,
+png $h^2_{obs}(5\myhyphen50) = 0.066 (0.0)$.}
+\end{center}
+\end{table}
+
+
+
+\begin{table}[H]
+\begin{center}
+\begin{tabular}{l|lllll}
+Category  & Prop.\ SNPs & Prop.\ $h^2_g$ (pa) & Enrichment (pa) & Prop.\ $h^2_g$ (png) & Enrichment (png)\\
+\hline
+Coding (UCSC)  &  0.015 & 0.037 (0.013) & 2.517 (0.897) &
+0.04 (0.012) & 2.703 (0.807) \\
+Conserved (Ward-Kellis)  &  0.026 & 0.379 (0.027) & 14.542 (1.019) &
+0.367 (0.023) & 14.065 (0.878) \\
+DGF (ENCODE)  &  0.138 & -0.047 (0.046) & -0.343 (0.336) &
+-0.031 (0.043) & -0.224 (0.316) \\
+DHS (Trynka)  &  0.168 & 0.092 (0.066) & 0.55 (0.394) &
+0.145 (0.056) & 0.863 (0.331) \\
+Enhancer (Andersson)  &  0.004 & -0.028 (0.01) & -6.399 (2.388) &
+-0.025 (0.009) & -5.733 (2.064) \\
+Enhancer (Hoffman)  &  0.063 & 0.222 (0.015) & 3.507 (0.237) &
+0.213 (0.015) & 3.358 (0.23) \\
+Fetal DHS (Trynka)  &  0.085 & 0.016 (0.065) & 0.189 (0.768) &
+0.049 (0.055) & 0.577 (0.65) \\
+H3K4me1 (Trynka)  &  0.427 & 0.735 (0.034) & 1.723 (0.079) &
+0.73 (0.029) & 1.71 (0.068) \\
+H3K4me3 (Trynka)  &  0.133 & 0.131 (0.019) & 0.985 (0.146) &
+0.148 (0.019) & 1.107 (0.143) \\
+H3K9ac (Trynka)  &  0.126 & 0.215 (0.015) & 1.708 (0.121) &
+0.217 (0.016) & 1.719 (0.124) \\
+Intron (UCSC)  &  0.387 & 0.481 (0.025) & 1.242 (0.064) &
+0.466 (0.02) & 1.203 (0.051) \\
+Promoter (UCSC)  &  0.031 & -0.01 (0.011) & -0.332 (0.357) &
+-0.003 (0.01) & -0.084 (0.332) \\
+TFBS (ENCODE)  &  0.132 & 0.229 (0.031) & 1.729 (0.231) &
+0.256 (0.031) & 1.933 (0.231) \\
+UTR (UCSC)  &  0.012 & 0.005 (0.012) & 0.426 (1.007) &
+0.008 (0.011) & 0.716 (0.941) \\
+CTCF (Hoffman)  &  0.024 & -0.071 (0.024) & -2.98 (0.995) &
+-0.052 (0.02) & -2.163 (0.854) \\
+Prom Flank (Hoffman)  &  0.008 & -0.001 (0.008) & -0.127 (0.998) &
+-0.01 (0.008) & -1.176 (0.983) \\
+Repressed (Hoffman)  &  0.935 & 0.952 (0.037) & 1.018 (0.04) &
+0.944 (0.031) & 1.009 (0.033) \\
+Transcribed (Hoffman)  &  0.345 & 0.448 (0.037) & 1.297 (0.106) &
+0.419 (0.03) & 1.214 (0.086) \\
+TSS (Hoffman)  &  0.018 & 0.003 (0.019) & 0.183 (1.055) &
+0.019 (0.017) & 1.039 (0.907) \\
+Weak Enh. (Hoffman)  &  0.021 & 0.135 (0.012) & 6.423 (0.556) &
+0.133 (0.011) & 6.31 (0.536) \\
+All annotations  &  1.0 & 1.0 (0.021) & 1.0 (0.021) &
+1.0 (0.021) & 1.0 (0.021) \\
+\end{tabular}
+\caption{BMI.
+Per allele intercept = 0.789 (0.004),
+png intercept = 0.77 (0.004).
+Per allele $h^2_{obs}(5\myhyphen50) = 0.065 (0.0)$,
+png $h^2_{obs}(5\myhyphen50) = 0.065 (0.0)$.}
+\end{center}
+\end{table}
+
+
+
+\begin{table}[H]
+\begin{center}
+\begin{tabular}{l|lllll}
+Category  & Prop.\ SNPs & Prop.\ $h^2_g$ (pa) & Enrichment (pa) & Prop.\ $h^2_g$ (png) & Enrichment (png)\\
+\hline
+Coding (UCSC)  &  0.015 & 0.131 (0.021) & 8.914 (1.416) &
+0.133 (0.021) & 9.055 (1.427) \\
+Conserved (Ward-Kellis)  &  0.026 & 0.155 (0.026) & 5.928 (1.001) &
+0.192 (0.024) & 7.354 (0.934) \\
+DGF (ENCODE)  &  0.138 & 0.567 (0.088) & 4.124 (0.637) &
+0.759 (0.089) & 5.518 (0.645) \\
+DHS (Trynka)  &  0.168 & 0.661 (0.083) & 3.943 (0.494) &
+0.734 (0.084) & 4.376 (0.503) \\
+Enhancer (Andersson)  &  0.004 & -0.001 (0.019) & -0.201 (4.274) &
+-0.005 (0.018) & -1.177 (4.224) \\
+Enhancer (Hoffman)  &  0.063 & 0.35 (0.042) & 5.525 (0.668) &
+0.313 (0.04) & 4.937 (0.631) \\
+Fetal DHS (Trynka)  &  0.085 & 0.307 (0.068) & 3.62 (0.799) &
+0.398 (0.07) & 4.691 (0.821) \\
+H3K4me1 (Trynka)  &  0.427 & 1.045 (0.048) & 2.45 (0.113) &
+0.983 (0.048) & 2.305 (0.112) \\
+H3K4me3 (Trynka)  &  0.133 & 0.514 (0.046) & 3.854 (0.346) &
+0.516 (0.044) & 3.869 (0.329) \\
+H3K9ac (Trynka)  &  0.126 & 0.691 (0.041) & 5.482 (0.327) &
+0.69 (0.039) & 5.474 (0.312) \\
+Intron (UCSC)  &  0.387 & 0.483 (0.026) & 1.246 (0.067) &
+0.463 (0.025) & 1.194 (0.064) \\
+Promoter (UCSC)  &  0.031 & 0.058 (0.021) & 1.873 (0.661) &
+0.075 (0.021) & 2.391 (0.662) \\
+TFBS (ENCODE)  &  0.132 & 0.184 (0.065) & 1.386 (0.488) &
+0.301 (0.066) & 2.272 (0.497) \\
+UTR (UCSC)  &  0.012 & 0.113 (0.023) & 9.75 (1.947) &
+0.107 (0.022) & 9.235 (1.9) \\
+CTCF (Hoffman)  &  0.024 & -0.104 (0.04) & -4.359 (1.676) &
+-0.055 (0.039) & -2.297 (1.624) \\
+Prom Flank (Hoffman)  &  0.008 & 0.036 (0.02) & 4.214 (2.402) &
+0.03 (0.02) & 3.525 (2.34) \\
+Repressed (Hoffman)  &  0.935 & 0.786 (0.042) & 0.84 (0.045) &
+0.785 (0.045) & 0.839 (0.048) \\
+Transcribed (Hoffman)  &  0.345 & 0.344 (0.034) & 0.997 (0.098) &
+0.359 (0.034) & 1.039 (0.099) \\
+TSS (Hoffman)  &  0.018 & 0.131 (0.027) & 7.2 (1.462) &
+0.128 (0.027) & 7.051 (1.479) \\
+Weak Enh. (Hoffman)  &  0.021 & 0.077 (0.033) & 3.658 (1.582) &
+0.09 (0.032) & 4.244 (1.526) \\
+All annotations  &  1.0 & 1.0 (0.042) & 1.0 (0.042) &
+1.0 (0.046) & 1.0 (0.046) \\
+\end{tabular}
+\caption{Coronary Artery Disease.
+Per allele intercept = 1.02 (0.004),
+png intercept = 1.011 (0.004).
+Per allele $h^2_{obs}(5\myhyphen50) = 0.071 (0.0)$,
+png $h^2_{obs}(5\myhyphen50) = 0.074 (0.0)$.}
+\end{center}
+\end{table}
+
+
+
+\begin{table}[H]
+\begin{center}
+\begin{tabular}{l|lllll}
+Category  & Prop.\ SNPs & Prop.\ $h^2_g$ (pa) & Enrichment (pa) & Prop.\ $h^2_g$ (png) & Enrichment (png)\\
+\hline
+Coding (UCSC)  &  0.015 & 0.132 (0.011) & 9.039 (0.771) &
+0.12 (0.01) & 8.174 (0.684) \\
+Conserved (Ward-Kellis)  &  0.026 & 0.376 (0.013) & 14.415 (0.492) &
+0.336 (0.011) & 12.894 (0.436) \\
+DGF (ENCODE)  &  0.138 & 0.67 (0.032) & 4.87 (0.23) &
+0.647 (0.029) & 4.699 (0.213) \\
+DHS (Trynka)  &  0.168 & 0.543 (0.034) & 3.234 (0.205) &
+0.529 (0.034) & 3.155 (0.202) \\
+Enhancer (Andersson)  &  0.004 & -0.005 (0.006) & -1.213 (1.294) &
+-0.01 (0.005) & -2.283 (1.267) \\
+Enhancer (Hoffman)  &  0.063 & 0.2 (0.017) & 3.16 (0.269) &
+0.201 (0.016) & 3.176 (0.258) \\
+Fetal DHS (Trynka)  &  0.085 & 0.234 (0.031) & 2.765 (0.371) &
+0.246 (0.031) & 2.902 (0.368) \\
+H3K4me1 (Trynka)  &  0.427 & 0.975 (0.018) & 2.286 (0.041) &
+0.965 (0.018) & 2.262 (0.041) \\
+H3K4me3 (Trynka)  &  0.133 & 0.444 (0.017) & 3.328 (0.131) &
+0.436 (0.017) & 3.268 (0.128) \\
+H3K9ac (Trynka)  &  0.126 & 0.527 (0.019) & 4.179 (0.153) &
+0.522 (0.019) & 4.14 (0.152) \\
+Intron (UCSC)  &  0.387 & 0.459 (0.011) & 1.184 (0.027) &
+0.457 (0.011) & 1.18 (0.028) \\
+Promoter (UCSC)  &  0.031 & 0.071 (0.008) & 2.269 (0.247) &
+0.068 (0.007) & 2.179 (0.23) \\
+TFBS (ENCODE)  &  0.132 & 0.489 (0.023) & 3.692 (0.176) &
+0.478 (0.022) & 3.607 (0.166) \\
+UTR (UCSC)  &  0.012 & 0.083 (0.009) & 7.175 (0.812) &
+0.078 (0.009) & 6.764 (0.748) \\
+CTCF (Hoffman)  &  0.024 & 0.072 (0.012) & 3.003 (0.497) &
+0.065 (0.012) & 2.715 (0.499) \\
+Prom Flank (Hoffman)  &  0.008 & 0.011 (0.007) & 1.28 (0.882) &
+-0.0 (0.007) & -0.056 (0.814) \\
+Repressed (Hoffman)  &  0.935 & 0.781 (0.017) & 0.835 (0.019) &
+0.796 (0.018) & 0.851 (0.019) \\
+Transcribed (Hoffman)  &  0.345 & 0.533 (0.017) & 1.542 (0.05) &
+0.509 (0.018) & 1.475 (0.051) \\
+TSS (Hoffman)  &  0.018 & 0.128 (0.01) & 7.037 (0.539) &
+0.126 (0.009) & 6.899 (0.505) \\
+Weak Enh. (Hoffman)  &  0.021 & -0.022 (0.013) & -1.027 (0.634) &
+-0.014 (0.013) & -0.66 (0.631) \\
+All annotations  &  1.0 & 1.0 (0.016) & 1.0 (0.016) &
+1.0 (0.017) & 1.0 (0.017) \\
+\end{tabular}
+\caption{Height.
+Per allele intercept = 0.786 (0.005),
+png intercept = 0.751 (0.006).
+Per allele $h^2_{obs}(5\myhyphen50) = 0.154 (0.0)$,
+png $h^2_{obs}(5\myhyphen50) = 0.156 (0.0)$.}
+\end{center}
+\end{table}
+
+
+
+\begin{table}[H]
+\begin{center}
+\begin{tabular}{l|lllll}
+Category  & Prop.\ SNPs & Prop.\ $h^2_g$ (pa) & Enrichment (pa) & Prop.\ $h^2_g$ (png) & Enrichment (png)\\
+\hline
+Coding (UCSC)  &  0.015 & 0.004 (0.065) & 0.301 (4.459) &
+-0.005 (0.061) & -0.375 (4.164) \\
+Conserved (Ward-Kellis)  &  0.026 & 0.361 (0.091) & 13.836 (3.499) &
+0.369 (0.088) & 14.164 (3.394) \\
+DGF (ENCODE)  &  0.138 & 0.253 (0.246) & 1.84 (1.789) &
+0.243 (0.237) & 1.764 (1.722) \\
+DHS (Trynka)  &  0.168 & 0.668 (0.205) & 3.979 (1.222) &
+0.626 (0.206) & 3.73 (1.229) \\
+Enhancer (Andersson)  &  0.004 & -0.031 (0.04) & -7.112 (9.263) &
+-0.021 (0.044) & -4.892 (10.106) \\
+Enhancer (Hoffman)  &  0.063 & 0.252 (0.102) & 3.986 (1.604) &
+0.237 (0.104) & 3.739 (1.637) \\
+Fetal DHS (Trynka)  &  0.085 & 0.138 (0.189) & 1.628 (2.228) &
+0.133 (0.184) & 1.567 (2.168) \\
+H3K4me1 (Trynka)  &  0.427 & 0.949 (0.135) & 2.225 (0.317) &
+0.95 (0.128) & 2.228 (0.299) \\
+H3K4me3 (Trynka)  &  0.133 & 0.507 (0.154) & 3.803 (1.159) &
+0.464 (0.137) & 3.483 (1.026) \\
+H3K9ac (Trynka)  &  0.126 & 0.589 (0.185) & 4.673 (1.466) &
+0.586 (0.168) & 4.646 (1.334) \\
+Intron (UCSC)  &  0.387 & 0.56 (0.1) & 1.445 (0.259) &
+0.539 (0.089) & 1.392 (0.229) \\
+Promoter (UCSC)  &  0.031 & 0.028 (0.054) & 0.889 (1.739) &
+0.035 (0.052) & 1.125 (1.671) \\
+TFBS (ENCODE)  &  0.132 & 0.265 (0.174) & 2.004 (1.313) &
+0.279 (0.174) & 2.11 (1.317) \\
+UTR (UCSC)  &  0.012 & 0.076 (0.072) & 6.582 (6.191) &
+0.08 (0.072) & 6.893 (6.244) \\
+CTCF (Hoffman)  &  0.024 & -0.124 (0.098) & -5.197 (4.122) &
+-0.078 (0.097) & -3.273 (4.05) \\
+Prom Flank (Hoffman)  &  0.008 & 0.031 (0.076) & 3.642 (8.979) &
+0.013 (0.069) & 1.492 (8.135) \\
+Repressed (Hoffman)  &  0.935 & 0.901 (0.141) & 0.963 (0.151) &
+0.879 (0.125) & 0.94 (0.134) \\
+Transcribed (Hoffman)  &  0.345 & 0.777 (0.202) & 2.251 (0.584) &
+0.726 (0.179) & 2.101 (0.518) \\
+TSS (Hoffman)  &  0.018 & 0.006 (0.081) & 0.336 (4.435) &
+0.015 (0.073) & 0.816 (4.021) \\
+Weak Enh. (Hoffman)  &  0.021 & 0.134 (0.105) & 6.35 (4.995) &
+0.115 (0.112) & 5.456 (5.303) \\
+All annotations  &  1.0 & 1.0 (0.105) & 1.0 (0.105) &
+1.0 (0.101) & 1.0 (0.101) \\
+\end{tabular}
+\caption{Type-2 Diabetes.
+Per allele intercept = 1.021 (0.006),
+png intercept = 1.015 (0.007).
+Per allele $h^2_{obs}(5\myhyphen50) = 0.085 (0.0)$,
+png $h^2_{obs}(5\myhyphen50) = 0.085 (0.0)$.}
+\end{center}
+\end{table}
+
+
+
+\end{document}
